@@ -3,21 +3,49 @@ import { auth, db, storage } from "../Firebase";
 import { 
   createUserWithEmailAndPassword, 
   signInWithEmailAndPassword, 
-  updateProfile 
+  updateProfile,
+  signInWithPopup,
+  GoogleAuthProvider 
 } from "firebase/auth";
 import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
-import { doc, setDoc } from "firebase/firestore";
+import { doc, setDoc, getDoc } from "firebase/firestore";
 import { useNavigate } from "react-router-dom";
 
 const Auth = () => {
-  const [isSignUp, setIsSignUp] = useState(true); // Toggle between login and signup
+  const [isSignUp, setIsSignUp] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [username, setUsername] = useState(""); // For signup only
-  const [image, setImage] = useState(null); // For signup profile photo
+  const [username, setUsername] = useState("");
+  const [image, setImage] = useState(null);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const navigate = useNavigate();
+
+  // Google Login
+  const handleGoogleLogin = async () => {
+    const provider = new GoogleAuthProvider();
+    try {
+      const result = await signInWithPopup(auth, provider);
+      const user = result.user;
+
+      // Check if the user exists in Firestore
+      const userRef = doc(db, "users", user.uid);
+      const docSnapshot = await getDoc(userRef);
+
+      if (!docSnapshot.exists()) {
+        await setDoc(userRef, {
+          username: user.displayName || user.email,
+          photoURL: user.photoURL,
+          email: user.email,
+        });
+      }
+
+      navigate("/chat");
+    } catch (error) {
+      console.error("Error with Google login:", error);
+      setErrorMessage(error.message);
+    }
+  };
 
   // Handle file input for signup
   const handleFileChange = (e) => {
@@ -139,6 +167,14 @@ const Auth = () => {
           </button>
           {errorMessage && <p className="text-red-500 text-sm text-center">{errorMessage}</p>}
         </form>
+
+        <button
+          onClick={handleGoogleLogin}
+          className="w-full p-3 mb-4 bg-red-500 text-white rounded-lg font-semibold hover:bg-red-600 transition"
+        >
+          Sign In with Google
+        </button>
+
         <p className="text-sm text-center mt-4">
           {isSignUp ? "Already have an account?" : "Don't have an account?"}{" "}
           <button
